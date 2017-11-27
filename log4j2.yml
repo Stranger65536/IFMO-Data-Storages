@@ -1,0 +1,46 @@
+Configutation:
+  name: default
+
+  Properties:
+    Property:
+      name: log-path
+      value: "logs"
+
+  Appenders:
+    Console:
+      name: Console_Appender
+      target: SYSTEM_OUT
+      PatternLayout:
+        pattern: "%d{yyyy-MM-dd HH:mm:ss.SSS} %level [%t] %logger{36} - %msg%n"
+
+    RollingFile:
+      name: RollingFile_Appender
+      fileName: logs/app.log
+      filePattern: "logs/archive/app.log.%d{yyyy-MM-dd-hh-mm}.gz"
+      PatternLayout:
+        pattern: "%d{yyyy-MM-dd HH:mm:ss.SSS} %level [%t] %logger{36} - %msg%n"
+      Policies:
+        SizeBasedTriggeringPolicy:
+          size: 5 MB
+      DefaultRollOverStrategy:
+        max: 30
+
+  Loggers:
+    Logger:
+      - name: org.hibernate
+        additivity: false
+        level: off
+      - name: org.springframework
+        additivity: false
+        level: info
+        AppenderRef:
+          - ref: Console_Appender
+            level: info
+          - ref: RollingFile_Appender
+            level: info
+    Root:
+      level: debug
+      additivity: false
+      AppenderRef:
+        - ref: RollingFile_Appender
+        - ref: Console_Appender

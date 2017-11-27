@@ -1,0 +1,18 @@
+logging:
+#  config: file:log4j2.yml
+jpa:
+  storage:
+    hibernate:
+      ddl-auto: validate
+      properties:
+        dialect: org.hibernate.dialect.Oracle12cDialect
+  branch1:
+    hibernate:
+      ddl-auto: validate
+      properties:
+        dialect: org.hibernate.dialect.Oracle12cDialect
+  branch2:
+    hibernate:
+      ddl-auto: validate
+      properties:
+        dialect: org.hibernate.dialect.Oracle12cDialect

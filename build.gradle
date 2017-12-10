@@ -1,6 +1,7 @@
 import org.flywaydb.gradle.FlywayExtension
 import org.flywaydb.gradle.task.FlywayCleanTask
 import org.flywaydb.gradle.task.FlywayMigrateTask
+import org.flywaydb.gradle.task.FlywayBaselineTask
 
 buildscript {
     ext {
@@ -46,6 +47,7 @@ project.ext.springBootVersion = '1.5.8.RELEASE'
 
 dependencies {
     compile(
+            [group: 'org.flywaydb', name: 'flyway-core', version: '5.0.2'],
             [group: 'org.projectlombok', name: 'lombok', version: project.lombokVersion],
 
             [group: 'com.oracle', name: 'ojdbc7', version: project.ojdbcVersion],
@@ -74,56 +76,89 @@ configurations {
 }
 
 //noinspection GroovyAssignabilityCheck
-task flywayMigrateStorage(type: FlywayMigrateTask) {
-    extension = new FlywayExtension()
-    extension.driver = 'oracle.jdbc.OracleDriver'
-    extension.schemas = [project.findProperty('storage.schema')]
-    extension.locations = ['filesystem:schema/storage/']
-    extension.sqlMigrationPrefix = 'V'
-    extension.baselineOnMigrate = true
-    extension.user = project.findProperty('storage.admin.user')
-    extension.password = project.findProperty('storage.admin.password')
-    extension.baselineDescription = 'Storage init'
-    extension.url = project.findProperty('storage.url')
-    extension.placeholders = [
-            'STORAGE_USER' : project.findProperty('storage.user'),
-            'STORAGE_PASSWORD' : project.findProperty('storage.password'),
-    ]
-}
-
-//noinspection GroovyAssignabilityCheck
 task flywayCleanStorage(type: FlywayCleanTask) {
     extension = new FlywayExtension()
     extension.driver = 'oracle.jdbc.OracleDriver'
     extension.schemas = [project.findProperty('storage.schema')]
     extension.locations = ['filesystem:schema/storage/']
     extension.sqlMigrationPrefix = 'V'
-    extension.baselineOnMigrate = true
+    extension.baselineOnMigrate = false
     extension.user = project.findProperty('storage.admin.user')
     extension.password = project.findProperty('storage.admin.password')
-    extension.baselineDescription = 'Storage init'
+    extension.baselineVersion = '0.5'
     extension.url = project.findProperty('storage.url')
     extension.placeholders = [
             'STORAGE_USER' : project.findProperty('storage.user'),
-            'STORAGE_PASSWORD' : project.findProperty('storage.password')
+            'STORAGE_ADMIN_USER' : project.findProperty('storage.admin.user'),
+            'STORAGE_PASSWORD' : project.findProperty('storage.password'),
+            'BRANCH_1_HOST': project.findProperty('branch1.host'),
+            'BRANCH_1_PDB': project.findProperty('branch1.pdb'),
+            'BRANCH_1_PORT': project.findProperty('branch1.port'),
+            'BRANCH_1_USER' : project.findProperty('branch1.user'),
+            'BRANCH_1_PASSWORD' : project.findProperty('branch1.password'),
+            'BRANCH_2_HOST': project.findProperty('branch2.host'),
+            'BRANCH_2_PDB': project.findProperty('branch2.pdb'),
+            'BRANCH_2_PORT': project.findProperty('branch2.port'),
+            'BRANCH_2_USER' : project.findProperty('branch2.user'),
+            'BRANCH_2_PASSWORD' : project.findProperty('branch2.password')
     ]
 }
 
 //noinspection GroovyAssignabilityCheck
-task flywayMigrateBranch1(type: FlywayMigrateTask) {
+task flywayBaselineStorage(type: FlywayBaselineTask) {
     extension = new FlywayExtension()
     extension.driver = 'oracle.jdbc.OracleDriver'
-    extension.schemas = [project.findProperty('branch1.schema')]
-    extension.locations = ['filesystem:schema/branch1/']
+    extension.schemas = [project.findProperty('storage.schema')]
+    extension.locations = ['filesystem:schema/storage/']
     extension.sqlMigrationPrefix = 'V'
-    extension.baselineOnMigrate = true
-    extension.user = project.findProperty('branch1.admin.user')
-    extension.password = project.findProperty('branch1.admin.password')
-    extension.baselineDescription = 'Branch 1 init'
-    extension.url = project.findProperty('branch1.url')
+    extension.baselineOnMigrate = false
+    extension.user = project.findProperty('storage.admin.user')
+    extension.password = project.findProperty('storage.admin.password')
+    extension.baselineVersion = '0.5'
+    extension.url = project.findProperty('storage.url')
     extension.placeholders = [
+            'STORAGE_USER' : project.findProperty('storage.user'),
+            'STORAGE_ADMIN_USER' : project.findProperty('storage.admin.user'),
+            'STORAGE_PASSWORD' : project.findProperty('storage.password'),
+            'BRANCH_1_HOST': project.findProperty('branch1.host'),
+            'BRANCH_1_PDB': project.findProperty('branch1.pdb'),
+            'BRANCH_1_PORT': project.findProperty('branch1.port'),
             'BRANCH_1_USER' : project.findProperty('branch1.user'),
-            'BRANCH_1_PASSWORD' : project.findProperty('branch1.password')
+            'BRANCH_1_PASSWORD' : project.findProperty('branch1.password'),
+            'BRANCH_2_HOST': project.findProperty('branch2.host'),
+            'BRANCH_2_PDB': project.findProperty('branch2.pdb'),
+            'BRANCH_2_PORT': project.findProperty('branch2.port'),
+            'BRANCH_2_USER' : project.findProperty('branch2.user'),
+            'BRANCH_2_PASSWORD' : project.findProperty('branch2.password')
+    ]
+}
+
+//noinspection GroovyAssignabilityCheck
+task flywayMigrateStorage(type: FlywayMigrateTask) {
+    extension = new FlywayExtension()
+    extension.driver = 'oracle.jdbc.OracleDriver'
+    extension.schemas = [project.findProperty('storage.schema')]
+    extension.locations = ['filesystem:schema/storage/']
+    extension.sqlMigrationPrefix = 'V'
+    extension.baselineOnMigrate = false
+    extension.user = project.findProperty('storage.user')
+    extension.password = project.findProperty('storage.password')
+    extension.baselineVersion = '0.5'
+    extension.url = project.findProperty('storage.url')
+    extension.placeholders = [
+            'STORAGE_USER' : project.findProperty('storage.user'),
+            'STORAGE_ADMIN_USER' : project.findProperty('storage.admin.user'),
+            'STORAGE_PASSWORD' : project.findProperty('storage.password'),
+            'BRANCH_1_HOST': project.findProperty('branch1.host'),
+            'BRANCH_1_PDB': project.findProperty('branch1.pdb'),
+            'BRANCH_1_PORT': project.findProperty('branch1.port'),
+            'BRANCH_1_USER' : project.findProperty('branch1.user'),
+            'BRANCH_1_PASSWORD' : project.findProperty('branch1.password'),
+            'BRANCH_2_HOST': project.findProperty('branch2.host'),
+            'BRANCH_2_PDB': project.findProperty('branch2.pdb'),
+            'BRANCH_2_PORT': project.findProperty('branch2.port'),
+            'BRANCH_2_USER' : project.findProperty('branch2.user'),
+            'BRANCH_2_PASSWORD' : project.findProperty('branch2.password')
     ]
 }
 
@@ -134,10 +169,10 @@ task flywayCleanBranch1(type: FlywayCleanTask) {
     extension.schemas = [project.findProperty('branch1.schema')]
     extension.locations = ['filesystem:schema/branch1/']
     extension.sqlMigrationPrefix = 'V'
-    extension.baselineOnMigrate = true
+    extension.baselineOnMigrate = false
     extension.user = project.findProperty('branch1.admin.user')
     extension.password = project.findProperty('branch1.admin.password')
-    extension.baselineDescription = 'Branch 1 init'
+    extension.baselineVersion = '0.5'
     extension.url = project.findProperty('branch1.url')
     extension.placeholders = [
             'BRANCH_1_USER' : project.findProperty('branch1.user'),
@@ -146,20 +181,38 @@ task flywayCleanBranch1(type: FlywayCleanTask) {
 }
 
 //noinspection GroovyAssignabilityCheck
-task flywayMigrateBranch2(type: FlywayMigrateTask) {
+task flywayBaselineBranch1(type: FlywayBaselineTask) {
     extension = new FlywayExtension()
     extension.driver = 'oracle.jdbc.OracleDriver'
-    extension.schemas = [project.findProperty('branch2.schema')]
-    extension.locations = ['filesystem:schema/branch2/']
+    extension.schemas = [project.findProperty('branch1.schema')]
+    extension.locations = ['filesystem:schema/branch1/']
     extension.sqlMigrationPrefix = 'V'
-    extension.baselineOnMigrate = true
-    extension.user = project.findProperty('branch2.admin.user')
-    extension.password = project.findProperty('branch2.admin.password')
-    extension.baselineDescription = 'Branch 2 init'
-    extension.url = project.findProperty('branch2.url')
+    extension.baselineOnMigrate = false
+    extension.user = project.findProperty('branch1.admin.user')
+    extension.password = project.findProperty('branch1.admin.password')
+    extension.baselineVersion = '0.5'
+    extension.url = project.findProperty('branch1.url')
     extension.placeholders = [
-            'BRANCH_2_USER' : project.findProperty('branch2.user'),
-            'BRANCH_2_PASSWORD' : project.findProperty('branch2.password')
+            'BRANCH_1_USER' : project.findProperty('branch1.user'),
+            'BRANCH_1_PASSWORD' : project.findProperty('branch1.password')
+    ]
+}
+
+//noinspection GroovyAssignabilityCheck
+task flywayMigrateBranch1(type: FlywayMigrateTask) {
+    extension = new FlywayExtension()
+    extension.driver = 'oracle.jdbc.OracleDriver'
+    extension.schemas = [project.findProperty('branch1.schema')]
+    extension.locations = ['filesystem:schema/branch1/']
+    extension.sqlMigrationPrefix = 'V'
+    extension.baselineOnMigrate = false
+    extension.user = project.findProperty('branch1.user')
+    extension.password = project.findProperty('branch1.password')
+    extension.baselineVersion = '0.5'
+    extension.url = project.findProperty('branch1.url')
+    extension.placeholders = [
+            'BRANCH_1_USER' : project.findProperty('branch1.user'),
+            'BRANCH_1_PASSWORD' : project.findProperty('branch1.password')
     ]
 }
 
@@ -170,16 +223,56 @@ task flywayCleanBranch2(type: FlywayCleanTask) {
     extension.schemas = [project.findProperty('branch2.schema')]
     extension.locations = ['filesystem:schema/branch2/']
     extension.sqlMigrationPrefix = 'V'
-    extension.baselineOnMigrate = true
+    extension.baselineOnMigrate = false
     extension.user = project.findProperty('branch2.admin.user')
     extension.password = project.findProperty('branch2.admin.password')
-    extension.baselineDescription = 'Branch 2 init'
+    extension.baselineVersion = '0.5'
     extension.url = project.findProperty('branch2.url')
     extension.placeholders = [
             'BRANCH_2_USER' : project.findProperty('branch2.user'),
             'BRANCH_2_PASSWORD' : project.findProperty('branch2.password')
     ]
 }
+
+//noinspection GroovyAssignabilityCheck
+task flywayBaselineBranch2(type: FlywayBaselineTask) {
+    extension = new FlywayExtension()
+    extension.driver = 'oracle.jdbc.OracleDriver'
+    extension.schemas = [project.findProperty('branch2.schema')]
+    extension.locations = ['filesystem:schema/branch2/']
+    extension.sqlMigrationPrefix = 'V'
+    extension.baselineOnMigrate = false
+    extension.user = project.findProperty('branch2.admin.user')
+    extension.password = project.findProperty('branch2.admin.password')
+    extension.baselineVersion = '0.5'
+    extension.url = project.findProperty('branch2.url')
+    extension.placeholders = [
+            'BRANCH_2_USER' : project.findProperty('branch2.user'),
+            'BRANCH_2_PASSWORD' : project.findProperty('branch2.password')
+    ]
+}
+
+//noinspection GroovyAssignabilityCheck
+task flywayMigrateBranch2(type: FlywayMigrateTask) {
+    extension = new FlywayExtension()
+    extension.driver = 'oracle.jdbc.OracleDriver'
+    extension.schemas = [project.findProperty('branch2.schema')]
+    extension.locations = ['filesystem:schema/branch2/']
+    extension.sqlMigrationPrefix = 'V'
+    extension.baselineOnMigrate = false
+    extension.user = project.findProperty('branch2.user')
+    extension.password = project.findProperty('branch2.password')
+    extension.baselineVersion = '0.5'
+    extension.url = project.findProperty('branch2.url')
+    extension.placeholders = [
+            'BRANCH_2_USER' : project.findProperty('branch2.user'),
+            'BRANCH_2_PASSWORD' : project.findProperty('branch2.password')
+    ]
+}
+
+flywayMigrateBranch1.dependsOn(flywayBaselineBranch1)
+flywayMigrateBranch2.dependsOn(flywayBaselineBranch2)
+flywayMigrateStorage.dependsOn(flywayBaselineStorage)
 
 build.dependsOn(flywayMigrateBranch1)
 build.dependsOn(flywayMigrateBranch2)

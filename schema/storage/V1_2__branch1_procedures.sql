@@ -224,3 +224,33 @@ AS
                                 FROM CUSTOMERS_STORE_TEMP;
     DELETE FROM CUSTOMERS_STORE_TEMP;
   END;
+/
+CREATE OR REPLACE PROCEDURE RESTORE_BRANCH1_CUSTOMERS(
+  F_CHANGED_AT TIMESTAMP)
+AS
+  BEGIN
+    EXECUTE IMMEDIATE ('DELETE FROM CUSTOMERS@BRANCH_1');
+    EXECUTE IMMEDIATE ('
+        INSERT INTO CUSTOMERS@BRANCH_1
+        SELECT
+          CUSTOMER_ID,
+          FIRST_NAME,
+          LAST_NAME,
+          MIDDLE_NAME,
+          EMAIL,
+          PHONE_NUMBER
+        FROM CUSTOMERS_STORE CS1
+          INNER JOIN (
+                       SELECT
+                         CUSTOMER_ID     C_ID,
+                         MAX(CHANGED_AT) CHANGED_AT
+                       FROM CUSTOMERS_STORE
+                       WHERE CHANGED_AT <= TO_TIMESTAMP(''' || TO_CHAR(F_CHANGED_AT, 'YYYY-MM-DD HH24:MI:SS') || ''', ''YYYY-MM-DD HH24:MI:SS'')
+                       GROUP BY CUSTOMER_ID
+                     ) CS2
+            ON CS1.CUSTOMER_ID = CS2.C_ID
+               AND CS1.CHANGED_AT = CS2.CHANGED_AT
+        WHERE STATUS <> ''D''
+      ');
+  END;
+/

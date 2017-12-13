@@ -756,3 +756,259 @@ AS
       ');
   END;
 /
+CREATE OR REPLACE PROCEDURE BACKUP_BRANCH1_SALES
+AS
+  F_CHANGED_AT    TIMESTAMP := SYSDATE;
+  CURSOR SALES_CUR
+  IS
+    SELECT
+      SALE_ID,
+      ITEM_ID,
+      CUSTOMER_ID,
+      AMOUNT,
+      TIME,
+      TOTAL_PRICE
+    FROM SALES@BRANCH_1
+    ORDER BY SALE_ID ASC;
+
+  CURSOR SALES_STORE_CUR
+  IS
+    SELECT
+      SALE_ID,
+      ITEM_ID,
+      CUSTOMER_ID,
+      AMOUNT,
+      TIME,
+      TOTAL_PRICE,
+      STATUS
+    FROM SALES_STORE CS1
+      INNER JOIN (
+                   SELECT
+                     SALE_ID         C_ID,
+                     MAX(CHANGED_AT) CHANGED_AT
+                   FROM SALES_STORE
+                   GROUP BY SALE_ID
+                 ) CS2
+        ON CS1.SALE_ID = CS2.C_ID
+           AND CS1.CHANGED_AT = CS2.CHANGED_AT
+    ORDER BY SALE_ID ASC;
+
+  SALE_REC        SALES_CUR%ROWTYPE;
+  SALES_STORE_REC SALES_STORE_CUR%ROWTYPE;
+
+  FUNCTION IS_DELETED_SALE(
+    RECORD_C SALES_STORE_CUR%ROWTYPE)
+    RETURN NUMBER
+  AS
+    REC_EXISTS NUMBER;
+    BEGIN
+      SELECT COUNT(*)
+      INTO REC_EXISTS
+      FROM SALES_STORE CS1
+        INNER JOIN (
+                     SELECT
+                       SALE_ID         C_ID,
+                       MAX(CHANGED_AT) CHANGED_AT
+                     FROM SALES_STORE
+                     WHERE SALE_ID = RECORD_C.SALE_ID
+                     GROUP BY SALE_ID
+                   ) CS2
+          ON CS1.SALE_ID = CS2.C_ID
+             AND CS1.CHANGED_AT = CS2.CHANGED_AT
+      WHERE CS1.STATUS = 'D'
+            AND ROWNUM = 1;
+      IF (REC_EXISTS = 1)
+      THEN
+        BEGIN
+          DBMS_OUTPUT.PUT_LINE('ALREADY DELETED');
+          RETURN 1;
+        END;
+      ELSE
+        BEGIN
+          DBMS_OUTPUT.PUT_LINE('NOT DELETED');
+          RETURN 0;
+        END;
+      END IF;
+    END;
+
+  FUNCTION IS_EQUAL_SALES(
+    RECORD_C SALES_CUR%ROWTYPE,
+    RECORD_S SALES_STORE_CUR%ROWTYPE
+  )
+    RETURN NUMBER
+  AS
+    BEGIN
+      IF RECORD_C.SALE_ID = RECORD_S.SALE_ID
+         AND RECORD_C.ITEM_ID = RECORD_S.ITEM_ID
+         AND RECORD_C.CUSTOMER_ID = RECORD_S.CUSTOMER_ID
+         AND RECORD_C.AMOUNT = RECORD_S.AMOUNT
+         AND RECORD_C.TIME = RECORD_S.TIME
+         AND RECORD_C.TOTAL_PRICE = RECORD_S.TOTAL_PRICE
+      THEN
+        BEGIN
+          DBMS_OUTPUT.PUT_LINE('EQUAL');
+          RETURN 1;
+        END;
+      ELSE
+        BEGIN
+          DBMS_OUTPUT.PUT_LINE('NOT EQUAL');
+          RETURN 0;
+        END;
+      END IF;
+    END;
+
+  PROCEDURE INSERT_SALE(
+    RECORD       SALES_CUR%ROWTYPE,
+    F_CHANGED_AT TIMESTAMP
+  ) AS
+    BEGIN
+      INSERT INTO SALES_STORE_TEMP
+      VALUES
+        (
+          F_CHANGED_AT,
+          RECORD.SALE_ID,
+          'I',
+          RECORD.ITEM_ID,
+          RECORD.CUSTOMER_ID,
+          RECORD.AMOUNT,
+          RECORD.TIME,
+          RECORD.TOTAL_PRICE
+        );
+    END;
+
+  PROCEDURE UPDATE_SALE(
+    RECORD       SALES_CUR%ROWTYPE,
+    F_CHANGED_AT TIMESTAMP
+  ) AS
+    BEGIN
+      INSERT INTO SALES_STORE_TEMP
+      VALUES
+        (
+          F_CHANGED_AT,
+          RECORD.SALE_ID,
+          'U',
+          RECORD.ITEM_ID,
+          RECORD.CUSTOMER_ID,
+          RECORD.AMOUNT,
+          RECORD.TIME,
+          RECORD.TOTAL_PRICE
+        );
+    END;
+
+  PROCEDURE DELETE_SALE(
+    RECORD       SALES_STORE_CUR%ROWTYPE,
+    F_CHANGED_AT TIMESTAMP
+  ) AS
+    BEGIN
+      INSERT INTO SALES_STORE_TEMP
+      VALUES
+        (
+          F_CHANGED_AT,
+          RECORD.SALE_ID,
+          'D',
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          NULL
+        );
+    END;
+  BEGIN
+    OPEN SALES_CUR;
+    OPEN SALES_STORE_CUR;
+
+    FETCH SALES_CUR INTO SALE_REC;
+    FETCH SALES_STORE_CUR INTO SALES_STORE_REC;
+
+    LOOP
+      EXIT WHEN SALES_CUR%NOTFOUND AND SALES_STORE_CUR%NOTFOUND;
+
+      IF (SALES_CUR%NOTFOUND)
+      THEN
+        SALE_REC.SALE_ID := NULL;
+      END IF;
+
+      IF (SALES_STORE_CUR%NOTFOUND)
+      THEN
+        SALES_STORE_REC.SALE_ID := NULL;
+      END IF;
+
+      DBMS_OUTPUT.PUT_LINE('BRANCH:  ' || RAWTOHEX(SALE_REC.SALE_ID));
+      DBMS_OUTPUT.PUT_LINE('STORAGE: ' || RAWTOHEX(SALES_STORE_REC.SALE_ID));
+
+      IF (SALES_STORE_REC.SALE_ID IS NULL
+          OR SALE_REC.SALE_ID IS NOT NULL
+             AND SALES_STORE_REC.SALE_ID IS NOT NULL
+             AND RAWTOHEX(SALE_REC.SALE_ID) < RAWTOHEX(SALES_STORE_REC.SALE_ID))
+      THEN
+        BEGIN
+          DBMS_OUTPUT.PUT_LINE('INSERT ' || SALE_REC.SALE_ID);
+          INSERT_SALE(SALE_REC, F_CHANGED_AT);
+          FETCH SALES_CUR INTO SALE_REC;
+        END;
+      ELSIF (SALE_REC.SALE_ID IS NULL
+             OR SALE_REC.SALE_ID IS NOT NULL
+                AND SALES_STORE_REC.SALE_ID IS NOT NULL
+                AND RAWTOHEX(SALE_REC.SALE_ID) > RAWTOHEX(SALES_STORE_REC.SALE_ID))
+        THEN
+          BEGIN
+            IF (IS_DELETED_SALE(SALES_STORE_REC) = 0)
+            THEN
+              BEGIN
+                DBMS_OUTPUT.PUT_LINE('DELETE ' || SALES_STORE_REC.SALE_ID);
+                DELETE_SALE(SALES_STORE_REC, F_CHANGED_AT);
+              END;
+            END IF;
+            FETCH SALES_STORE_CUR INTO SALES_STORE_REC;
+          END;
+      ELSIF (RAWTOHEX(SALE_REC.SALE_ID) = RAWTOHEX(SALES_STORE_REC.SALE_ID))
+        THEN
+          BEGIN
+            IF IS_EQUAL_SALES(SALE_REC, SALES_STORE_REC) = 0
+            THEN
+              DBMS_OUTPUT.PUT_LINE('UPDATE ' || SALE_REC.SALE_ID);
+              UPDATE_SALE(SALE_REC, F_CHANGED_AT);
+            END IF;
+            FETCH SALES_CUR INTO SALE_REC;
+            FETCH SALES_STORE_CUR INTO SALES_STORE_REC;
+          END;
+      END IF;
+    END LOOP;
+
+    CLOSE SALES_CUR;
+    CLOSE SALES_STORE_CUR;
+
+    INSERT INTO SALES_STORE SELECT *
+                            FROM SALES_STORE_TEMP;
+    DELETE FROM SALES_STORE_TEMP;
+  END;
+/
+CREATE OR REPLACE PROCEDURE RESTORE_BRANCH1_SALES(
+  F_CHANGED_AT TIMESTAMP)
+AS
+  BEGIN
+    EXECUTE IMMEDIATE ('DELETE FROM SALES@BRANCH_1');
+    EXECUTE IMMEDIATE ('
+        INSERT INTO SALES@BRANCH_1
+        SELECT
+          SALE_ID,
+          ITEM_ID,
+          CUSTOMER_ID,
+          AMOUNT,
+          TIME,
+          TOTAL_PRICE
+        FROM SALES_STORE CS1
+          INNER JOIN (
+                       SELECT
+                         SALE_ID     C_ID,
+                         MAX(CHANGED_AT) CHANGED_AT
+                       FROM SALES_STORE
+                       WHERE CHANGED_AT <= TO_TIMESTAMP(''' || TO_CHAR(F_CHANGED_AT, 'YYYY-MM-DD HH24:MI:SS') || ''', ''YYYY-MM-DD HH24:MI:SS'')
+                       GROUP BY SALE_ID
+                     ) CS2
+            ON CS1.SALE_ID = CS2.C_ID
+               AND CS1.CHANGED_AT = CS2.CHANGED_AT
+        WHERE STATUS <> ''D''
+      ');
+  END;
+/
